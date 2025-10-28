@@ -1,6 +1,27 @@
-import { eq } from "drizzle-orm";
+import { eq, desc, and, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users } from "../drizzle/schema";
+import {
+  InsertUser,
+  users,
+  accounts,
+  projects,
+  domains,
+  pages,
+  keywords,
+  briefs,
+  posts,
+  tasks,
+  issues,
+  prospects,
+  links,
+  gbps,
+  emails,
+  calls,
+  invoices,
+  webhookEvents,
+  webhookSubscriptions,
+  auditLogs,
+} from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -56,8 +77,8 @@ export async function upsertUser(user: InsertUser): Promise<void> {
       values.role = user.role;
       updateSet.role = user.role;
     } else if (user.openId === ENV.ownerOpenId) {
-      values.role = 'admin';
-      updateSet.role = 'admin';
+      values.role = 'owner';
+      updateSet.role = 'owner';
     }
 
     if (!values.lastSignedIn) {
@@ -89,4 +110,246 @@ export async function getUserByOpenId(openId: string) {
   return result.length > 0 ? result[0] : undefined;
 }
 
-// TODO: add feature queries here as your schema grows.
+// ============================================================================
+// ACCOUNT & PROJECT QUERIES
+// ============================================================================
+
+export async function getAllAccounts() {
+  const db = await getDb();
+  if (!db) return [];
+  
+  return await db.select().from(accounts).orderBy(desc(accounts.createdAt));
+}
+
+export async function getAccountById(id: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  
+  const result = await db.select().from(accounts).where(eq(accounts.id, id)).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function getProjectsByAccount(accountId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  
+  return await db.select().from(projects).where(eq(projects.accountId, accountId)).orderBy(desc(projects.createdAt));
+}
+
+// ============================================================================
+// DOMAIN & PAGE QUERIES
+// ============================================================================
+
+export async function getAllDomains() {
+  const db = await getDb();
+  if (!db) return [];
+  
+  return await db.select().from(domains).orderBy(desc(domains.createdAt));
+}
+
+export async function getDomainsByAccount(accountId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  
+  return await db.select().from(domains).where(eq(domains.accountId, accountId)).orderBy(desc(domains.createdAt));
+}
+
+export async function getPagesByDomain(domainId: number, limit: number = 100) {
+  const db = await getDb();
+  if (!db) return [];
+  
+  return await db.select().from(pages).where(eq(pages.domainId, domainId)).limit(limit);
+}
+
+// ============================================================================
+// CONTENT QUERIES
+// ============================================================================
+
+export async function getKeywordsByAccount(accountId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  
+  return await db.select().from(keywords).where(eq(keywords.accountId, accountId)).orderBy(desc(keywords.createdAt));
+}
+
+export async function getBriefsByAccount(accountId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  
+  return await db.select().from(briefs).where(eq(briefs.accountId, accountId)).orderBy(desc(briefs.createdAt));
+}
+
+export async function getPostsByAccount(accountId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  
+  return await db.select().from(posts).where(eq(posts.accountId, accountId)).orderBy(desc(posts.createdAt));
+}
+
+export async function getPostsByStatus(accountId: number, status: string) {
+  const db = await getDb();
+  if (!db) return [];
+  
+  return await db.select().from(posts)
+    .where(and(
+      eq(posts.accountId, accountId),
+      eq(posts.status, status as any)
+    ))
+    .orderBy(desc(posts.createdAt));
+}
+
+// ============================================================================
+// TASK QUERIES
+// ============================================================================
+
+export async function getTasksByUser(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  
+  return await db.select().from(tasks)
+    .where(eq(tasks.assignedTo, userId))
+    .orderBy(desc(tasks.createdAt));
+}
+
+export async function getTasksByAccount(accountId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  
+  return await db.select().from(tasks)
+    .where(eq(tasks.accountId, accountId))
+    .orderBy(desc(tasks.createdAt));
+}
+
+// ============================================================================
+// ISSUE QUERIES
+// ============================================================================
+
+export async function getIssuesByDomain(domainId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  
+  return await db.select().from(issues)
+    .where(eq(issues.domainId, domainId))
+    .orderBy(desc(issues.firstSeen));
+}
+
+export async function getCriticalIssues() {
+  const db = await getDb();
+  if (!db) return [];
+  
+  return await db.select().from(issues)
+    .where(and(
+      eq(issues.severity, 'critical'),
+      eq(issues.status, 'open')
+    ))
+    .orderBy(desc(issues.firstSeen));
+}
+
+// ============================================================================
+// LINK BUILDING QUERIES
+// ============================================================================
+
+export async function getProspectsByAccount(accountId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  
+  return await db.select().from(prospects)
+    .where(eq(prospects.accountId, accountId))
+    .orderBy(desc(prospects.createdAt));
+}
+
+export async function getLinksByAccount(accountId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  
+  return await db.select().from(links)
+    .where(eq(links.accountId, accountId))
+    .orderBy(desc(links.createdAt));
+}
+
+export async function getVerifiedLinks(accountId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  
+  return await db.select().from(links)
+    .where(and(
+      eq(links.accountId, accountId),
+      eq(links.status, 'live')
+    ))
+    .orderBy(desc(links.verifiedAt));
+}
+
+// ============================================================================
+// RANKDRE QUERIES
+// ============================================================================
+
+export async function getGBPsByAccount(accountId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  
+  return await db.select().from(gbps)
+    .where(eq(gbps.accountId, accountId))
+    .orderBy(desc(gbps.createdAt));
+}
+
+export async function getCallsByGBP(gbpId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  
+  return await db.select().from(calls)
+    .where(eq(calls.gbpId, gbpId))
+    .orderBy(desc(calls.calledAt));
+}
+
+// ============================================================================
+// WEBHOOK QUERIES
+// ============================================================================
+
+export async function getWebhookEventsByAccount(accountId: number, limit: number = 50) {
+  const db = await getDb();
+  if (!db) return [];
+  
+  return await db.select().from(webhookEvents)
+    .where(eq(webhookEvents.accountId, accountId))
+    .orderBy(desc(webhookEvents.receivedAt))
+    .limit(limit);
+}
+
+export async function getWebhookSubscriptionsByAccount(accountId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  
+  return await db.select().from(webhookSubscriptions)
+    .where(eq(webhookSubscriptions.accountId, accountId))
+    .orderBy(desc(webhookSubscriptions.createdAt));
+}
+
+// ============================================================================
+// AUDIT LOG QUERIES
+// ============================================================================
+
+export async function createAuditLog(log: {
+  userId?: number;
+  accountId?: number;
+  action: string;
+  entityType?: string;
+  entityId?: number;
+  details?: string;
+  ipAddress?: string;
+  userAgent?: string;
+}) {
+  const db = await getDb();
+  if (!db) return;
+  
+  await db.insert(auditLogs).values(log);
+}
+
+export async function getAuditLogsByAccount(accountId: number, limit: number = 100) {
+  const db = await getDb();
+  if (!db) return [];
+  
+  return await db.select().from(auditLogs)
+    .where(eq(auditLogs.accountId, accountId))
+    .orderBy(desc(auditLogs.createdAt))
+    .limit(limit);
+}
